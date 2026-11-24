@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Neon Moto</title>
+  <style>
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;overflow:hidden;display:grid;place-items:center;background:radial-gradient(circle at 50% 20%,#243b64,#080b18 70%);font-family:system-ui,sans-serif;color:#fff}.game{position:relative;width:min(100vw,560px);height:min(100vh,900px)}canvas{width:100%;height:100%;display:block}.hud{position:absolute;inset:18px 18px auto;display:flex;justify-content:space-between;pointer-events:none;text-transform:uppercase;font-weight:900;letter-spacing:1.5px;text-shadow:0 2px 8px #000}.hud span{color:#72efff}.overlay{position:absolute;inset:0;display:grid;place-items:center;text-align:center;background:linear-gradient(#090d20cc,#080b18aa);backdrop-filter:blur(4px)}.overlay.hidden{display:none}.card{padding:28px;max-width:390px}h1{margin:0 0 8px;font-size:clamp(42px,12vw,76px);line-height:.9;font-style:italic;background:linear-gradient(135deg,#fff 20%,#70efff 55%,#ff54c8);color:transparent;background-clip:text}p{color:#bbc7df;line-height:1.5}button{border:0;border-radius:999px;padding:14px 28px;margin-top:10px;background:linear-gradient(135deg,#69e6ff,#a66cff);color:#090b18;font-weight:900;font-size:16px;cursor:pointer;box-shadow:0 10px 30px #6bdfff55}.controls{position:absolute;inset:auto 16px 18px;display:flex;justify-content:space-between;pointer-events:none}.control{width:74px;height:74px;border-radius:50%;border:2px solid #ffffff24;background:#ffffff12;backdrop-filter:blur(6px);display:grid;place-items:center;font-size:30px;pointer-events:auto;touch-action:none;user-select:none}
+  </style>
+</head>
+<body>
+  <main class="game">
+    <canvas id="game"></canvas>
+    <div class="hud"><div>Score <span id="score">0</span></div><div>Best <span id="best">0</span></div></div>
+    <div class="controls"><div class="control" id="left">◀</div><div class="control" id="right">▶</div></div>
+    <div class="overlay" id="overlay"><div class="card"><h1>NEON<br>MOTO</h1><p id="message">Weave through traffic and chase the horizon.</p><button id="start">Start Ride</button></div></div>
+  </main>
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),overlay=document.getElementById('overlay'),scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),messageEl=document.getElementById('message');let W,H,dpr,running=false,score=0,best=+(localStorage.neonMotoBest||0),speed=5,roadOffset=0,traffic=[],keys={},spawnTimer=0;bestEl.textContent=best;const bike={x:0,y:0,w:44,h:92,lean:0};
+function resize(){dpr=Math.min(devicePixelRatio||1,2);W=canvas.clientWidth;H=canvas.clientHeight;canvas.width=W*dpr;canvas.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);bike.y=H-145;if(!bike.x)bike.x=W/2;bike.x=Math.max(roadLeft()+55,Math.min(roadRight()-55,bike.x))}function roadLeft(){return W*.12}function roadRight(){return W*.88}
+function reset(){score=0;speed=5;traffic=[];spawnTimer=0;bike.x=W/2;bike.lean=0;scoreEl.textContent=0}function start(){reset();running=true;overlay.classList.add('hidden')}
+document.getElementById('start').addEventListener('click',start);window.addEventListener('resize',resize);resize();window.addEventListener('keydown',e=>{keys[e.key]=true;if(e.key===' '&&!running)start()});window.addEventListener('keyup',e=>keys[e.key]=false);
+function bindControl(id,key){const el=document.getElementById(id),down=e=>{e.preventDefault();keys[key]=true},up=e=>{e.preventDefault();keys[key]=false};el.addEventListener('pointerdown',down);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);el.addEventListener('pointerleave',up)}bindControl('left','ArrowLeft');bindControl('right','ArrowRight');
+function spawnTraffic(){const laneW=(roadRight()-roadLeft())/4,lane=Math.floor(Math.random()*4);traffic.push({x:roadLeft()+laneW*(lane+.5),y:-110,w:38,h:72,color:['#ff4f87','#ffc857','#9f7cff','#57d7ff'][Math.floor(Math.random()*4)]})}
+function update(dt){if(!running)return;roadOffset=(roadOffset+speed*dt)%80;const move=(keys.ArrowLeft||keys.a?-1:0)+(keys.ArrowRight||keys.d?1:0);bike.x+=move*330*dt;bike.lean+=(move*.28-bike.lean)*.14;bike.x=Math.max(roadLeft()+30,Math.min(roadRight()-30,bike.x));spawnTimer-=dt;if(spawnTimer<=0){spawnTraffic();spawnTimer=Math.max(.42,1.1-score/900)*(.75+Math.random()*.55)}for(const car of traffic){car.y+=speed*62*dt;if(Math.abs(car.x-bike.x)<(car.w+bike.w)*.42&&Math.abs(car.y-bike.y)<(car.h+bike.h)*.42)gameOver()}traffic=traffic.filter(car=>car.y<H+120);score+=dt*10*(speed/5);speed=Math.min(10.5,5+score/420);scoreEl.textContent=Math.floor(score)}
+function gameOver(){running=false;score=Math.floor(score);if(score>best){best=score;localStorage.neonMotoBest=best;bestEl.textContent=best}messageEl.textContent=`You scored ${score}. Back on the road?`;document.getElementById('start').textContent='Ride Again';overlay.classList.remove('hidden')}
+function drawRoad(){ctx.fillStyle='#252937';ctx.fillRect(0,0,W,H);ctx.fillStyle='#171a24';ctx.fillRect(roadLeft(),0,roadRight()-roadLeft(),H);ctx.fillStyle='#ff4fa8';ctx.fillRect(roadLeft()-6,0,6,H);ctx.fillStyle='#55dbff';ctx.fillRect(roadRight(),0,6,H);ctx.strokeStyle='#ffffff55';ctx.lineWidth=3;ctx.setLineDash([34,46]);ctx.lineDashOffset=roadOffset;for(let i=1;i<4;i++){const x=roadLeft()+(roadRight()-roadLeft())/4*i;ctx.beginPath();ctx.moveTo(x,-80);ctx.lineTo(x,H+80);ctx.stroke()}ctx.setLineDash([])}
+function roundedRect(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}function drawCar(car){ctx.save();ctx.translate(car.x,car.y);ctx.fillStyle='#080912';roundedRect(-car.w/2+3,-car.h/2+10,car.w+6,car.h-14,11);ctx.fillStyle=car.color;roundedRect(-car.w/2,-car.h/2,car.w,car.h,10);ctx.fillStyle='#10172b';roundedRect(-car.w*.32,-car.h*.28,car.w*.64,car.h*.36,5);ctx.fillStyle='#ffec8a';ctx.fillRect(-car.w*.38,car.h*.31,9,5);ctx.fillRect(car.w*.38-9,car.h*.31,9,5);ctx.restore()}
+function drawBike(){ctx.save();ctx.translate(bike.x,bike.y);ctx.rotate(bike.lean);ctx.shadowColor='#70efff';ctx.shadowBlur=18;ctx.fillStyle='#080912';roundedRect(-27,-38,54,82,25);ctx.fillStyle='#69e7ff';roundedRect(-21,-43,42,86,20);ctx.fillStyle='#171b31';roundedRect(-12,-34,24,68,12);ctx.fillStyle='#d8faff';ctx.beginPath();ctx.arc(0,-44,9,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ff4fbc';ctx.fillRect(-5,31,10,8);ctx.restore()}
+let last=performance.now();function loop(now){const dt=Math.min(.033,(now-last)/1000);last=now;update(dt);drawRoad();traffic.forEach(drawCar);drawBike();requestAnimationFrame(loop)}requestAnimationFrame(loop);
+</script>
+</body>
+</html>
